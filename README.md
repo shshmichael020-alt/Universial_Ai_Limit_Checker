@@ -28,8 +28,8 @@ For the full product overview, runtime data flow, provider behavior, storage mod
 ## Supported Providers
 
 - **ChatGPT:** official quota is best-effort through the permitted adapter; provider-visible percentage detection and local O200K activity are supported. Estimates are labeled.
-- **Claude:** official quota is best-effort; provider-visible percentage detection is supported, with local activity/estimates where available.
-- **Gemini:** verified consumer official quota is unavailable; generic visible consumer quota is not invented, and local estimates are labeled.
+- **Claude:** first-party utilization is supported when available; token usage follows AIRadar-style estimates of 90K tokens per 5-hour window and 1.26M per 7-day window, with o200k local text counting as fallback.
+- **Gemini:** verified consumer official quota is unavailable; generic visible consumer quota is not invented, and local activity estimates are labeled.
 - **GitHub Copilot Web:** provider-visible detection is best-effort; manual values and local estimates are supported where applicable, but no unsupported official API is claimed.
 
 Detected values contain provider-visible percentage data. Absolute used, limit, remaining, and reset values remain unavailable unless the provider page explicitly exposes them. No private API, credentials, cookies, or conversation text are used.
@@ -37,7 +37,7 @@ Detected values contain provider-visible percentage data. Absolute used, limit, 
 ## Structure
 
 ```text
-AI-Limit-Universal-HUD/
+AI-Limit-Universal_V2/
 ├── manifest.json
 ├── assets/icons/
 ├── docs/
@@ -95,3 +95,9 @@ Provider interfaces can change without notice. Consumer quota APIs are not unifo
 Run `powershell -ExecutionPolicy Bypass -File .\scripts\validate-extension.ps1` to validate the manifest, entry paths, and stale path references.
 
 The repository includes browser fixtures for the O200K tokenizer, activity ledger/model, ChatGPT data flow, HUD interaction and positioning, source resolution and cache recovery, reconciliation, provider selection, Gemini separation, and the final Power Ring UI. Open the fixture HTML files in Chrome or Brave and verify the `pre#result` output; the current suite contains 14 fixtures and 92 assertions.
+
+## GitHub Upload Checklist
+
+- Upload the folder containing `manifest.json` as the repository contents.
+- Do not upload secrets, credentials, cookies, tokens, ZIP backups, or generated browser profiles.
+- Load the same folder unpacked from `chrome://extensions` or `brave://extensions` for a final provider smoke test.

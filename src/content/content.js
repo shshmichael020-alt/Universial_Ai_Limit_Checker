@@ -58,9 +58,6 @@
   bolt.className = "bolt";
   bolt.setAttribute("aria-hidden", "true");
   bolt.append(createLightningMark("bolt-mark"));
-  const number = document.createElement("span");
-  number.className = "number";
-  number.setAttribute("aria-hidden", "true");
   circle.append(svg, bolt);
   toggle.append(circle);
 
@@ -180,11 +177,11 @@
   more.textContent = "…";
   const footer = document.createElement("div");
   footer.className = "panel-footer";
-  footer.append(updated, sourceInfo, more);
+  footer.append(updated, sourceInfo, more, sourcePopover);
   const leftColumn = document.createElement("div");
   leftColumn.className = "left-column";
   leftColumn.append(detail, activitySection);
-  panel.append(panelHeader, leftColumn, officialSection, footer, sourcePopover);
+  panel.append(panelHeader, leftColumn, officialSection, footer);
   root.append(toggle, panel);
   document.documentElement.appendChild(root);
 
@@ -223,14 +220,15 @@
     state = nextState || {};
     const settings = state.settings || {};
     const entry = state.usage?.[provider];
-    const sourcePriority = { "provider-api": 3, "provider-visible": 2, estimated: 1 };
+    const sourcePriority = { "provider-api": 4, "provider-visible": 3, manual: 3, estimated: 1 };
     const percentageLimits = entry?.limits?.filter(item =>
       item?.percentage != null && Number.isFinite(Number(item.percentage))
     ) || [];
     const limit = percentageLimits.sort((left, right) =>
       (sourcePriority[right?.source] || 0) - (sourcePriority[left?.source] || 0)
     )[0] || (provider === "chatgpt" ? null : entry?.limits?.find(item => item?.id !== "credits") || entry?.limits?.[0]);
-    const officialQuotaAvailable = percentageLimits.length > 0;
+    const officialQuotaAvailable = percentageLimits.some(item => item.source !== "estimated" && item.estimated !== true);
+    const estimatedQuotaAvailable = !officialQuotaAvailable && percentageLimits.length > 0;
     const officialQuotaCached = officialQuotaAvailable && entry?.status === "cached";
     const creditsLimit = entry?.limits?.find(item => item?.id === "credits");
     const hasProviderData = Boolean(entry?.limits?.some(item =>
@@ -240,27 +238,19 @@
     ));
     const percentage = Number(limit?.percentage);
     const known = Number.isFinite(percentage);
-    const bounded = known ? Math.min(100, Math.max(0, percentage)) : 0;
-    const age = entry?.staleSince ? formatAge(entry.staleSince) : formatAge(state.lastUpdated);
+    let bounded = known ? Math.min(100, Math.max(0, percentage)) : 0;
     const statusKey = entry?.status === "unavailable" && hasProviderData ? "detected" :
       entry?.status || (known ? "available" : "unavailable");
-    const stateLabel = entry?.status === "demo" ? "Demo data" :
-      entry?.status === "manual" ? "Manual value" :
-      entry?.status === "estimated" && provider !== "chatgpt" ? "Estimated" :
-      entry?.status === "detected" ? "Detected · provider-visible" :
-      entry?.status === "cached" ? `Cached · ${age.replace("Updated ", "")}` :
-      entry?.status === "error" ? "Refresh error" :
-      hasProviderData ? "Detected · provider-visible" :
-      known ? "Usage available" : "Usage unavailable";
     const officialLabel = officialQuotaCached ? "Official quota · Cached" :
-      officialQuotaAvailable ? "Official quota" : "Official quota unavailable";
+      officialQuotaAvailable ? "Official quota" : estimatedQuotaAvailable ? "Local estimate" : "Official quota unavailable";
 
     root.hidden = settings.hudEnabled === false;
     root.dataset.theme = settings.theme || "auto";
     root.dataset.state = known ? "known" : "unknown";
     root.dataset.status = statusKey;
-    const activitySummary = state.activitySummary;
-    const activityTokens = activitySummary?.tokensFiveHours;
+    const activitySummary = state.activitySummaries?.[provider] || (provider === "chatgpt" ? state.activitySummary : null);
+    const visibleEstimate = entry?.limits?.find(item => item?.source === "estimated" && Number.isFinite(Number(item.used)));
+    const activityTokens = activitySummary?.tokensFiveHours ?? visibleEstimate?.used;
     const hasActivity = Number.isFinite(Number(activityTokens)) && Number(activityTokens) > 0;
     const compactTokens = value => {
       if (!Number.isFinite(Number(value))) return "—";
@@ -269,62 +259,77 @@
       return Math.round(numeric).toLocaleString();
     };
     const activityHero = hasActivity ? compactTokens(activityTokens) : "—";
-    const localActive = !officialQuotaAvailable && hasActivity;
-    const ringFill = officialQuotaAvailable ? bounded : localActive ? 34 : 0;
-    const ringHue = officialQuotaAvailable ? Math.max(0, 132 - bounded * 1.32) : localActive ? 88 : 142;
+    let displayLimit = limit;
+    if (provider === "claude" && estimatedQuotaAvailable && hasActivity) {
+      const claudeLimit = 90000;
+      const usedTokens = Math.min(claudeLimit, Number(activityTokens));
+      displayLimit = {
+        ...limit,
+        used: Math.round(usedTokens),
+        limit: claudeLimit,
+        remaining: Math.max(0, claudeLimit - Math.round(usedTokens)),
+        percentage: (usedTokens / claudeLimit) * 100,
+        source: "estimated",
+        estimated: true,
+        tokenEstimated: true,
+        name: "Claude Free plan · 90K tokens"
+      };
+      bounded = Math.min(100, Math.max(0, displayLimit.percentage));
+    }
+    const localActive = !officialQuotaAvailable && (hasActivity || estimatedQuotaAvailable);
+    const ringFill = officialQuotaAvailable || estimatedQuotaAvailable ? bounded : localActive ? 34 : 0;
+    const ringHue = officialQuotaAvailable || estimatedQuotaAvailable ? Math.max(0, 132 - bounded * 1.32) : localActive ? 88 : 142;
     root.style.setProperty("--ai-limit-progress", `${ringFill}%`);
     root.style.setProperty("--ai-limit-hue", String(ringHue));
     root.dataset.mode = officialQuotaAvailable ? "official" : localActive ? "activity" : "neutral";
     progress.style.strokeDashoffset = String(100 - ringFill);
     detailSvg.querySelector(".progress").style.strokeDashoffset = String(100 - ringFill);
-    toggle.setAttribute("aria-label", officialQuotaAvailable ? `${providerName} usage, official quota` : `${providerName} usage, local activity`);
-    detailValue.textContent = officialQuotaAvailable ? `${Math.round(bounded)}%` : localActive ? activityHero : "Unavailable";
-    detailLabel.textContent = officialQuotaAvailable ? "used" : officialLabel;
-    used.hidden = !officialQuotaAvailable;
-    remaining.hidden = !officialQuotaAvailable;
-    reset.hidden = !officialQuotaAvailable;
-    if (officialQuotaAvailable) {
-      setText(used, "Used", limit?.used == null ? "—" : String(limit.used));
-      setText(remaining, "Remaining", limit?.remaining == null ? "—" : String(limit.remaining));
-      setText(reset, "Reset", limit?.resetAt ? new Date(limit.resetAt).toLocaleString() : "Unavailable");
+    toggle.setAttribute("aria-label", officialQuotaAvailable ? `${providerName} usage, official quota` : estimatedQuotaAvailable ? `${providerName} usage, local estimate` : `${providerName} usage, local activity`);
+    detailValue.textContent = officialQuotaAvailable || estimatedQuotaAvailable ? `${Math.round(bounded)}%` : localActive ? activityHero : "Unavailable";
+    detailLabel.textContent = officialQuotaAvailable ? "used" : estimatedQuotaAvailable ? "estimated" : officialLabel;
+    used.hidden = !officialQuotaAvailable && !estimatedQuotaAvailable;
+    remaining.hidden = !officialQuotaAvailable && !estimatedQuotaAvailable;
+    reset.hidden = !officialQuotaAvailable && !estimatedQuotaAvailable;
+    if (officialQuotaAvailable || estimatedQuotaAvailable) {
+      setText(used, "Used", displayLimit?.used == null ? "—" : String(displayLimit.used));
+      setText(remaining, "Remaining", displayLimit?.remaining == null ? "—" : String(displayLimit.remaining));
+      setText(reset, "Reset", displayLimit?.resetAt ? new Date(displayLimit.resetAt).toLocaleString() : "Unavailable");
     }
     credits.hidden = !creditsLimit;
     if (creditsLimit) setText(credits, "Credits", creditsLimit.displayValue || `${creditsLimit.remaining} credits left`);
     const formatTokens = value => Number.isFinite(Number(value)) ? `${Math.round(Number(value)).toLocaleString()} tokens` : "—";
     const activitySource = activitySummary?.activityModel?.source || activitySummary?.source;
-    const activityConfidence = activitySummary?.activityModel?.confidence || activitySummary?.confidence;
     const activitySourceLabel = activitySource === "local-o200k" ? "O200K" :
       activitySource === "provider-reported" ? "Provider-reported" :
       activitySource === "tokenizer-estimate" ? "O200K · Estimated" :
       activitySource === "rough-estimate" ? "Rough estimate" : activitySource || "Local activity";
     const activityContext = activitySummary?.activityModel?.contextTokens ?? null;
     const activityWindow = Number.isFinite(Number(activitySummary?.messagesFiveHours)) ? `${activitySummary.messagesFiveHours} messages · 5h` : "5h";
-    activity.textContent = provider === "chatgpt" ? `${activitySummary?.messagesFiveHours ?? "—"} messages` : "";
-    lastGeneration.textContent = provider === "chatgpt" ? `${activitySummary?.lastGenerationTokens ?? "—"} last generation` : "";
-    activity.title = provider === "chatgpt" ? `Activity (5h) · ${activityHero} tokens · ${activityWindow}` : "";
-    lastGeneration.title = provider === "chatgpt" ? `Last generation · ${formatTokens(activitySummary?.lastGenerationTokens)}` : "";
-    context.textContent = provider === "chatgpt" ? `Context · ${formatTokens(activityContext)}` : "";
-    burnRate.textContent = provider === "chatgpt" ? `Burn rate · ${Number.isFinite(Number(activitySummary?.burnRate)) ? `~${Math.round(activitySummary.burnRate)} tokens/min` : "—"}` : "";
-    const noData = !officialQuotaAvailable && !hasActivity && !creditsLimit;
-    activityHeading.textContent = noData ? "No usage data" : "Local activity";
-    officialHeading.textContent = officialQuotaAvailable ? "Official quota" : "Official quota";
-    officialSection.style.order = officialQuotaAvailable ? "1" : "2";
-    activitySection.style.order = officialQuotaAvailable ? "2" : "1";
-    if (officialQuotaAvailable) panel.insertBefore(officialSection, activitySection);
+    activity.textContent = `${activitySummary?.messagesFiveHours ?? "—"} messages`;
+    lastGeneration.textContent = `${activitySummary?.lastGenerationTokens ?? "—"} last generation`;
+    activity.title = `Activity (5h) · ${activityHero} tokens · ${activityWindow}`;
+    lastGeneration.title = `Last generation · ${formatTokens(activitySummary?.lastGenerationTokens)}`;
+    context.textContent = `Context · ${formatTokens(activityContext)}`;
+    burnRate.textContent = `Burn rate · ${Number.isFinite(Number(activitySummary?.burnRate)) ? `~${Math.round(activitySummary.burnRate)} tokens/min` : "—"}`;
+    activityHeading.textContent = "Local activity";
+    officialHeading.textContent = estimatedQuotaAvailable ? "Plan estimate" : "Official quota";
+    officialSection.style.order = officialQuotaAvailable || estimatedQuotaAvailable ? "1" : "2";
+    activitySection.style.order = officialQuotaAvailable || estimatedQuotaAvailable ? "2" : "1";
+    if (officialQuotaAvailable || estimatedQuotaAvailable) panel.insertBefore(officialSection, activitySection);
     else panel.insertBefore(activitySection, officialSection);
-    activitySection.hidden = provider !== "chatgpt";
-    officialSection.dataset.state = officialQuotaAvailable ? (officialQuotaCached ? "cached" : "available") : "unavailable";
-    quotaStatusValue.textContent = officialQuotaAvailable ? `${Math.round(bounded)}% used` : "Unavailable";
-    quotaStatusDetail.textContent = officialQuotaAvailable ? (limit?.name || "Provider quota") : "Provider quota not available";
-    quotaSource.textContent = officialQuotaAvailable ? `${limit?.source === "provider-api" ? "Provider-reported" : "Provider-visible"}${officialQuotaCached ? " · Cached" : ""}` : "Measured locally";
-    quotaUpdated.textContent = officialQuotaAvailable ? (limit?.resetAt ? `Reset ${new Date(limit.resetAt).toLocaleString()}` : "Reset unavailable") : formatAge(state.lastUpdated);
-    detailValue.textContent = officialQuotaAvailable ? `${Math.round(bounded)}%` : (hasActivity ? activityHero : "Unavailable");
-    detailMode.textContent = officialQuotaAvailable ? "OFFICIAL QUOTA" : "LOCAL ACTIVITY";
-    detailLabel.textContent = officialQuotaAvailable ? "used" : (hasActivity ? "tokens · 5h" : "Official quota unavailable");
+    activitySection.hidden = false;
+    officialSection.dataset.state = officialQuotaAvailable ? (officialQuotaCached ? "cached" : "available") : estimatedQuotaAvailable ? "estimated" : "unavailable";
+    quotaStatusValue.textContent = officialQuotaAvailable || estimatedQuotaAvailable ? `${Math.round(bounded)}% ${estimatedQuotaAvailable ? "estimated" : "used"}` : "Unavailable";
+    quotaStatusDetail.textContent = officialQuotaAvailable || estimatedQuotaAvailable ? (displayLimit?.name || "Provider quota") : "Provider quota not available";
+    quotaSource.textContent = officialQuotaAvailable ? `${displayLimit?.source === "provider-api" ? "Provider-reported" : "Provider-visible"}${displayLimit?.tokenEstimated ? " · token estimate" : ""}${officialQuotaCached ? " · Cached" : ""}` : estimatedQuotaAvailable ? "Local estimate" : "Measured locally";
+    quotaUpdated.textContent = officialQuotaAvailable || estimatedQuotaAvailable ? (displayLimit?.resetAt ? `Reset ${new Date(displayLimit.resetAt).toLocaleString()}` : "Reset unavailable") : formatAge(state.lastUpdated);
+    detailValue.textContent = officialQuotaAvailable || estimatedQuotaAvailable ? `${Math.round(bounded)}%` : (hasActivity ? activityHero : "Unavailable");
+    detailMode.textContent = officialQuotaAvailable ? "OFFICIAL QUOTA" : estimatedQuotaAvailable ? "LOCAL ESTIMATE" : "LOCAL ACTIVITY";
+    detailLabel.textContent = officialQuotaAvailable ? "used" : estimatedQuotaAvailable ? "of 90K tokens" : "tokens · 5h";
     detail.classList.toggle("activity-hero", localActive);
-    const sourceTitle = officialQuotaAvailable ? "Official provider quota" : "Measured locally";
-    const sourceDetail = officialQuotaAvailable ? `${limit?.source === "provider-api" ? "Provider-reported" : "Provider-visible"}${officialQuotaCached ? " · Cached" : ""}` : "Provider quota unavailable";
-    const sourceMethod = officialQuotaAvailable ? "AI Limit source information" : activitySourceLabel === "O200K" ? "O200K local activity" : activitySourceLabel;
+    const sourceTitle = officialQuotaAvailable ? "Official provider quota" : estimatedQuotaAvailable ? "Local plan estimate" : "Measured locally";
+    const sourceDetail = officialQuotaAvailable ? `${displayLimit?.source === "provider-api" ? "Provider-reported" : "Provider-visible"}${displayLimit?.tokenEstimated ? " · token estimate" : ""}${officialQuotaCached ? " · Cached" : ""}` : estimatedQuotaAvailable ? "Claude Free plan reference: 90K tokens" : "Provider quota unavailable";
+    const sourceMethod = officialQuotaAvailable || estimatedQuotaAvailable ? "AI Limit source information" : activitySourceLabel === "O200K" ? "O200K local activity" : activitySourceLabel;
     sourcePopover.replaceChildren();
     [sourceTitle, sourceDetail, sourceMethod].forEach((text, index) => {
       const line = document.createElement(index === 0 ? "strong" : "span");
@@ -549,7 +554,7 @@
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (changes.usage || changes.settings || changes.lastUpdated || changes.activitySummary) {
+    if (changes.usage || changes.settings || changes.lastUpdated || changes.activitySummary || changes.activitySummaries) {
       chrome.runtime.sendMessage({ type: "GET_STATE" }, response => render(response?.state));
     }
   });

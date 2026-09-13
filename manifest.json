@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Limit \u2014 Universal AI Usage HUD",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Universal AI usage HUD for Chrome and Brave.",
   "icons": {
     "16": "assets/icons/icon16.png",
@@ -69,6 +69,7 @@
         "https://github.com/*"
       ],
       "js": [
+        "src/vendor/o200k_base.js",
         "src/content/providers/detector-utils.js",
         "src/content/providers/chatgpt.js",
         "src/content/providers/claude.js",
@@ -77,6 +78,7 @@
         "src/content/provider-config.js",
         "src/content/usage-detector.js",
         "src/content/chatgpt-activity.js",
+        "src/content/provider-activity.js",
         "src/content/content.js"
       ],
       "css": [

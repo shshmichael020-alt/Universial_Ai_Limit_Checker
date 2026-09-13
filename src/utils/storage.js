@@ -14,7 +14,7 @@ export const DEFAULT_SETTINGS = {
 
 export async function getState() {
   const state = await chrome.storage.local.get([
-    "settings", "usage", "history", "manualLimits", "lastUpdated", "positions", "activityEvents", "activitySummary"
+    "settings", "usage", "history", "manualLimits", "lastUpdated", "positions", "activityEvents", "activitySummary", "activitySummaries"
   ]);
 
   const storedSettings = state.settings || {};
@@ -32,6 +32,7 @@ export async function getState() {
     lastUpdated: state.lastUpdated || null,
     positions: state.positions || {},
     activityEvents: state.activityEvents || [],
-    activitySummary: state.activitySummary || null
+    activitySummary: state.activitySummary || null,
+    activitySummaries: state.activitySummaries || {}
   };
 }

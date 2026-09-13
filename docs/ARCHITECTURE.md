@@ -57,7 +57,7 @@ A refresh that has no usable value preserves the previous usable entry as `cache
 
 Provider adapters own their acquisition and parsing. They may use a read-only authenticated first-party endpoint, then the provider-visible detector, then a numeric local estimate. `source-resolver.js` merges limits by id and never replaces a higher-priority provider API limit with lower-priority DOM or estimate data. API responses, headers, credentials, cookies, and conversation text are not stored or logged.
 
- Current API sources are intentionally best-effort and undocumented: ChatGPT `GET /backend-api/wham/usage` and Claude organization discovery followed by its usage endpoint. Gemini Cloud Code Assist and Gemini CLI quota are intentionally excluded because they are not verified consumer Chat quota. Authentication failure or response-shape changes fall back cleanly.
+ Current API sources are intentionally best-effort and undocumented: ChatGPT `GET /backend-api/wham/usage` and Claude organization discovery followed by its usage endpoint. Claude utilization is mapped to AIRadar-style estimated token windows of 90K for 5 hours and 1.26M for 7 days. Gemini Cloud Code Assist and Gemini CLI quota are intentionally excluded because they are not verified consumer Chat quota. Authentication failure or response-shape changes fall back cleanly.
 
 ## ChatGPT activity ledger
 

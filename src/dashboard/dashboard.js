@@ -31,7 +31,8 @@ async function load() {
       const p = Number(d?.percentage);
       const c = color(p);
       const card = document.createElement("article"); card.className = "card";
-      const activityTokens = Number(k === "chatgpt" ? state.activitySummary?.tokensFiveHours : NaN);
+      const activitySummary = state.activitySummaries?.[k] || (k === "chatgpt" ? state.activitySummary : null);
+      const activityTokens = Number(activitySummary?.tokensFiveHours);
       const localActive = !Number.isFinite(p) && Number.isFinite(activityTokens) && activityTokens > 0;
       card.dataset.mode = Number.isFinite(p) ? "official" : localActive ? "activity" : "neutral";
       card.style.setProperty("--ring-progress", `${Number.isFinite(p) ? Math.min(100, Math.max(0, p)) : localActive ? 34 : 0}%`);

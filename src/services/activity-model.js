@@ -15,7 +15,8 @@ export function calculateDivergence(primary, secondary) {
 
 export function buildActivityModel(events, options = {}) {
   const now = options.now || Date.now();
-  const valid = (events || []).filter(event => event.provider === "chatgpt");
+  const provider = options.provider || "chatgpt";
+  const valid = (events || []).filter(event => event.provider === provider);
   const fiveHours = valid.filter(event => now - event.timestamp <= 5 * 3600000);
   const sevenDays = valid.filter(event => now - event.timestamp <= 7 * 86400000);
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);

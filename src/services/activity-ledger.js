@@ -6,7 +6,8 @@ function finite(value) {
 }
 
 export function normalizeActivityEvent(event) {
-  if (!event || event.provider !== "chatgpt") return null;
+  const provider = String(event?.provider || "");
+  if (!event || !["chatgpt", "claude", "gemini", "copilot"].includes(provider)) return null;
   const inputTokens = finite(event.inputTokens);
   const outputTokens = finite(event.outputTokens);
   const totalTokens = finite(event.totalTokens) ??
@@ -14,11 +15,12 @@ export function normalizeActivityEvent(event) {
   if (inputTokens == null && outputTokens == null && totalTokens == null) return null;
   return {
     timestamp: Number.isFinite(Number(event.timestamp)) ? Number(event.timestamp) : Date.now(),
-    provider: "chatgpt",
+    provider,
     model: event.model || null,
     inputTokens,
     outputTokens,
     totalTokens,
+    messageCount: Math.max(1, Math.round(Number(event.messageCount) || 1)),
     durationMs: finite(event.durationMs),
     source: event.source || "tokenizer-estimate",
     confidence: event.confidence || "medium",
@@ -34,8 +36,8 @@ export function appendActivityEvent(events, event, now = Date.now()) {
     .slice(-5000);
 }
 
-export function summarizeActivity(events, now = Date.now()) {
-  const valid = (events || []).filter(item => item.provider === "chatgpt");
+export function summarizeActivity(events, now = Date.now(), provider = "chatgpt") {
+  const valid = (events || []).filter(item => item.provider === provider);
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
   const fiveHours = now - 5 * 3600000;
   const sevenDays = now - 7 * 86400000;
@@ -54,14 +56,14 @@ export function summarizeActivity(events, now = Date.now()) {
     durationMinutes ? sum(activityWindow) / durationMinutes : null;
   const inputTokens = sum(today.map(item => ({ totalTokens: item.inputTokens })));
   const outputTokens = sum(today.map(item => ({ totalTokens: item.outputTokens })));
-  const model = buildActivityModel(valid, { now });
+  const model = buildActivityModel(valid, { now, provider });
   return {
     currentConversationTokens: null,
     tokensToday: sum(today),
     tokensFiveHours: sum(rollingFiveHours),
     tokensSevenDays: sum(rollingSevenDays),
-    messagesToday: today.length,
-    messagesFiveHours: rollingFiveHours.length,
+    messagesToday: today.reduce((total, item) => total + (item.messageCount || 1), 0),
+    messagesFiveHours: rollingFiveHours.reduce((total, item) => total + (item.messageCount || 1), 0),
     lastGenerationTokens: latest?.totalTokens ?? null,
     lastGenerationAt: latest?.timestamp || null,
     lastGenerationDurationMs: latest?.durationMs ?? null,

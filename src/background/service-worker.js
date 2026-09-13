@@ -133,7 +133,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "CHATGPT_ACTIVITY_EVENT") {
+  if (["CHATGPT_ACTIVITY_EVENT", "PROVIDER_ACTIVITY_EVENT"].includes(message?.type)) {
     enqueueStateOperation(() => saveActivityEvent(message.event))
       .then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true;
@@ -207,15 +207,24 @@ async function markChatgptUnavailable() {
 }
 
 async function saveActivityEvent(event) {
-  const state = await chrome.storage.local.get(["activityEvents", "usage"]);
+  const state = await chrome.storage.local.get(["activityEvents", "activitySummary", "activitySummaries", "usage"]);
   const previous = state.activityEvents || [];
   const generationPrefix = event?.eventId?.replace(/^output:/, "input:");
   const candidates = event?.source === "provider-reported" && generationPrefix ?
     previous.filter(item => item.eventId !== generationPrefix) : previous;
   const activityEvents = appendActivityEvent(candidates, event);
-  const activitySummary = summarizeActivity(activityEvents);
-  const quotaLimit = state.usage?.chatgpt?.limits?.find(limit => limit.percentage != null) || null;
+  const activitySummary = summarizeActivity(activityEvents, Date.now(), event.provider);
+  const quotaLimit = state.usage?.[event.provider]?.limits?.find(limit => limit.percentage != null) || null;
   const reconciled = reconcile(quotaLimit, activitySummary);
-  await chrome.storage.local.set({ activityEvents, activitySummary: { ...activitySummary, reconciliation: reconciled.reconciliation } });
+  const activitySummaries = {
+    ...(state.activitySummaries || {}),
+    ...(state.activitySummary && !state.activitySummaries?.chatgpt ? { chatgpt: state.activitySummary } : {}),
+    [event.provider]: { ...activitySummary, reconciliation: reconciled.reconciliation }
+  };
+  await chrome.storage.local.set({
+    activityEvents,
+    activitySummaries,
+    activitySummary: activitySummaries.chatgpt
+  });
 }
 
