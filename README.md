@@ -95,9 +95,3 @@ Provider interfaces can change without notice. Consumer quota APIs are not unifo
 Run `powershell -ExecutionPolicy Bypass -File .\scripts\validate-extension.ps1` to validate the manifest, entry paths, and stale path references.
 
 The repository includes browser fixtures for the O200K tokenizer, activity ledger/model, ChatGPT data flow, HUD interaction and positioning, source resolution and cache recovery, reconciliation, provider selection, Gemini separation, and the final Power Ring UI. Open the fixture HTML files in Chrome or Brave and verify the `pre#result` output; the current suite contains 14 fixtures and 92 assertions.
-
-## GitHub Upload Checklist
-
-- Upload the folder containing `manifest.json` as the repository contents.
-- Do not upload secrets, credentials, cookies, tokens, ZIP backups, or generated browser profiles.
-- Load the same folder unpacked from `chrome://extensions` or `brave://extensions` for a final provider smoke test.
