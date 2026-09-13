@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Limit Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <aside>
+    <h2><span class="brand-mark" aria-hidden="true">⚡</span><span>AI Limit</span><small>Track smart. Use freely.</small></h2>
+    <button data-page="overview">Overview</button>
+    <button data-page="history">History</button>
+    <button data-page="settings">Settings</button>
+    <button data-page="providers">Providers</button>
+    <button data-page="about">About</button>
+  </aside>
+
+  <main>
+    <section id="overview" class="page active">
+      <p class="eyebrow">UNIVERSAL AI USAGE</p>
+      <h1>Overview</h1>
+      <div class="toolbar"><span id="snapshotStatus">Loading snapshot...</span><div class="toolbar-actions"><button id="refreshDashboard" type="button">Refresh now</button></div></div>
+      <div id="cards" class="grid"></div>
+    </section>
+
+    <section id="history" class="page">
+      <p class="eyebrow">RECORDED SNAPSHOTS</p>
+      <h1>History</h1>
+      <div class="panel history-panel">
+        <div class="history-actions"><p>Local snapshots are observations, not the provider's official history.</p><div><select id="historyFilter" aria-label="Filter usage history"><option value="all">All providers</option><option value="chatgpt">ChatGPT</option><option value="claude">Claude</option><option value="gemini">Gemini</option><option value="copilot">Copilot</option></select><button id="exportJson" type="button">Export JSON</button><button id="exportCsv" type="button">Export CSV</button></div></div>
+        <canvas id="chart" width="1000" height="300"></canvas>
+      </div>
+    </section>
+
+    <section id="settings" class="page">
+      <p class="eyebrow">CONTROL CENTER</p>
+      <h1>Settings</h1>
+      <div class="panel">
+        <label><input id="hudEnabled" type="checkbox"> Floating HUD</label>
+        <label><input id="demoMode" type="checkbox"> Demo mode</label>
+        <label>Theme <select id="theme"><option value="auto">Auto</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
+        <label>Refresh <select id="refreshMinutes"><option>1</option><option selected>5</option><option>10</option><option>15</option><option>30</option></select></label>
+        <label>History retention <select id="historyDays"><option>7</option><option>14</option><option selected>30</option><option>60</option><option>90</option></select> days</label>
+        <label><input id="alert75" type="checkbox"> Alert at 75%</label>
+        <label><input id="alert90" type="checkbox"> Alert at 90%</label>
+        <label><input id="alert95" type="checkbox"> Alert at 95%</label>
+        <label><input id="alert100" type="checkbox"> Alert at 100%</label>
+        <button id="save">Save settings</button>
+      </div>
+      <div class="panel">
+        <h2>Manual fallback</h2>
+        <p>Use this only for values you know. Manual values are not official provider quotas.</p>
+        <div class="form-grid"><label>Provider<select id="manualProvider"><option value="chatgpt">ChatGPT</option><option value="claude">Claude</option><option value="gemini">Gemini</option><option value="copilot">Copilot</option></select></label><label>Limit name<input id="manualName" value="Primary limit"></label><label>Used<input id="manualUsed" type="number" min="0" step="any"></label><label>Limit<input id="manualLimit" type="number" min="1" step="any"></label><label>Period<select id="manualPeriod"><option>daily</option><option>weekly</option><option>rolling</option><option>custom</option></select></label><label>Reset at<input id="manualReset" type="datetime-local"></label></div>
+        <button id="saveManual">Save manual value</button>
+      </div>
+    </section>
+
+    <section id="providers" class="page">
+      <p class="eyebrow">PROVIDERS</p>
+      <h1>ChatGPT · Claude · Gemini · Copilot</h1>
+      <div class="panel">
+        <p>Provider adapters live in <code>src/providers/</code>. Add reliable, permitted live usage sources there.</p>
+        <p>Manual/demo values should be clearly labeled and must not be presented as official quotas.</p>
+      </div>
+    </section>
+
+    <section id="about" class="page">
+      <p class="eyebrow">ABOUT</p>
+      <h1>Privacy-first AI usage</h1>
+      <div class="panel">
+        <p>AI Limit is designed to avoid collecting conversation content, passwords or session cookies.</p>
+        <p>The extension shows unavailable/cached states instead of inventing usage values.</p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>

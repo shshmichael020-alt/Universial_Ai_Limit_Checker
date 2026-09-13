@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Primary percentage limit selection</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const priority = { "provider-api": 4, "provider-visible": 3, estimated: 2, cached: 1 };
+  function select(entry) {
+    return (entry?.limits || []).filter(limit => limit?.percentage != null && Number.isFinite(Number(limit.percentage)) && Number(limit.percentage) >= 0 && Number(limit.percentage) <= 100).sort((a, b) => (priority[b.source] || 0) - (priority[a.source] || 0))[0] || null;
+  }
+  function check(name, value) { if (!value) throw new Error(name + " failed"); return name + " passed"; }
+  const selected = select({ limits: [{ id: "credits", remaining: 0, percentage: null, source: "provider-visible" }, { id: "visible", percentage: 61, source: "provider-visible" }, { id: "api", percentage: 42, source: "provider-api" }] });
+  document.querySelector("#result").textContent = [
+    check("percentage quota wins over credits", selected?.id === "api"),
+    check("credits-only is unavailable", select({ limits: [{ id: "credits", remaining: 0, percentage: null }] }) === null),
+    check("invalid percentage is unavailable", select({ limits: [{ id: "bad", percentage: 101 }] }) === null)
+  ].join("\n");
+})();
+</script></body></html>

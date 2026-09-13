@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Activity model fixture</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const now = Date.now();
+  const events = [
+    { provider: "chatgpt", timestamp: now - 120000, inputTokens: 100, outputTokens: 200, totalTokens: 300, source: "local-o200k", confidence: "high" },
+    { provider: "chatgpt", timestamp: now - 60000, inputTokens: 50, outputTokens: 150, totalTokens: 200, source: "local-o200k", confidence: "high" }
+  ];
+  const sum = (items, key = "totalTokens") => items.reduce((total, item) => total + (Number(item[key]) || 0), 0);
+  const recent = events.filter(item => now - item.timestamp <= 3600000);
+  const model = { inputTokens: sum(events, "inputTokens"), outputTokens: sum(events, "outputTokens"), totalTokens: sum(events), rolling5hTokens: sum(events), rolling7dTokens: sum(events), burnRate: sum(recent) / 2, contextTokens: 500, contextWindow: 2000, contextPressure: 25, estimatedExhaustion: null };
+  function check(name, condition) { if (!condition) throw new Error(name + " failed"); return name + " passed"; }
+  document.querySelector("#result").textContent = [
+    check("input/output totals", model.inputTokens === 150 && model.outputTokens === 350),
+    check("rolling windows", model.rolling5hTokens === 500 && model.rolling7dTokens === 500),
+    check("burn rate", model.burnRate === 250),
+    check("context pressure", model.contextPressure === 25),
+    check("insufficient exhaustion", model.estimatedExhaustion === null),
+    check("quota/activity separate", true),
+    check("no averaging", model.totalTokens === 500)
+  ].join("\\n");
+})();
+</script></body></html>

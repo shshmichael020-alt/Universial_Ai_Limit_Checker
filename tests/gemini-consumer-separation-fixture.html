@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Gemini consumer quota separation</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const cloudCodeQuota = { source: "provider-api", sourceDetail: "Cloud Code Assist", percentage: 40 };
+  const consumerUsage = { status: "unavailable", source: "unavailable", limits: [] };
+  function check(name, value) { if (!value) throw new Error(name + " failed"); return name + " passed"; }
+  document.querySelector("#result").textContent = [
+    check("Cloud Code Assist is not consumer usage", consumerUsage.limits.length === 0),
+    check("consumer status is unavailable", consumerUsage.status === "unavailable"),
+    check("Cloud Code data remains separate", cloudCodeQuota.sourceDetail !== consumerUsage.source)
+  ].join("\n");
+})();
+</script></body></html>

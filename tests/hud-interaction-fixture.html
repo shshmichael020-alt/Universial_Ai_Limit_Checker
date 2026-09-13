@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AI Limit HUD interaction and placement fixture</title>
+  <style>
+    #fixture-root { position: fixed; left: 0; top: 0; width: 54px; height: 54px; font: 14px sans-serif; }
+    #hud { position: absolute; left: 0; top: 0; width: 54px; height: 54px; border-radius: 50%; touch-action: none; }
+    #panel { display: none; width: 224px; height: 140px; padding: 12px; border: 1px solid #999; background: white; }
+    .expanded #panel { display: block; }
+    #result { margin-top: 190px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="fixture-root">
+    <button id="hud" type="button" aria-expanded="false">HUD</button>
+    <section id="panel">Usage card</section>
+  </div>
+  <pre id="result"></pre>
+  <script>
+    (() => {
+      const root = document.querySelector("#fixture-root");
+      const hud = document.querySelector("#hud");
+      const panel = document.querySelector("#panel");
+      const margin = 12;
+      const gap = 8;
+      let moved = false;
+      let pointerDown = false;
+      let suppressClick = false;
+      let start = { x: 0, y: 0 };
+      let startPosition = { x: 0, y: 0 };
+
+      function expanded(value) {
+        root.classList.toggle("expanded", value);
+        hud.setAttribute("aria-expanded", String(value));
+        if (value) positionPanel();
+      }
+
+      function positionPanel() {
+        panel.style.position = "fixed";
+        panel.style.marginTop = "0";
+        panel.style.left = "0px";
+        panel.style.top = "0px";
+        const hudRect = hud.getBoundingClientRect();
+        const cardRect = panel.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const rightSpace = vw - hudRect.right - margin - gap;
+        const leftSpace = hudRect.left - margin - gap;
+        const aboveSpace = hudRect.top - margin - gap;
+        const belowSpace = vh - hudRect.bottom - margin - gap;
+        const canRight = rightSpace >= cardRect.width;
+        const canLeft = leftSpace >= cardRect.width;
+        const canAbove = aboveSpace >= cardRect.height;
+        const canBelow = belowSpace >= cardRect.height;
+        const nearBottom = belowSpace < cardRect.height;
+        const nearTop = aboveSpace < cardRect.height;
+        let left;
+        let top;
+        if (nearBottom && canAbove) {
+          left = hudRect.right - cardRect.width;
+          top = hudRect.top - cardRect.height - gap;
+        } else if (nearTop && canBelow) {
+          left = hudRect.right - cardRect.width;
+          top = hudRect.bottom + gap;
+        } else if (canRight) {
+          left = hudRect.right + gap;
+          top = hudRect.top;
+        } else if (canLeft) {
+          left = hudRect.left - cardRect.width - gap;
+          top = hudRect.top;
+        } else if (canAbove || (!canBelow && aboveSpace >= belowSpace)) {
+          left = hudRect.right - cardRect.width;
+          top = hudRect.top - cardRect.height - gap;
+        } else {
+          left = hudRect.right - cardRect.width;
+          top = hudRect.bottom + gap;
+        }
+        const maxLeft = Math.max(margin, vw - cardRect.width - margin);
+        const maxTop = Math.max(margin, vh - cardRect.height - margin);
+        panel.style.left = `${Math.min(maxLeft, Math.max(margin, left))}px`;
+        panel.style.top = `${Math.min(maxTop, Math.max(margin, top))}px`;
+      }
+
+      hud.addEventListener("click", event => {
+        if (suppressClick) {
+          event.preventDefault();
+          suppressClick = false;
+          return;
+        }
+        expanded(!root.classList.contains("expanded"));
+      });
+      root.addEventListener("pointerdown", event => {
+        if (!event.target.closest("#hud")) return;
+        pointerDown = true;
+        moved = false;
+        start = { x: event.clientX, y: event.clientY };
+        startPosition = { x: root.offsetLeft, y: root.offsetTop };
+        hud.setPointerCapture?.(event.pointerId);
+      });
+      root.addEventListener("pointermove", event => {
+        if (!pointerDown) return;
+        if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) return;
+        moved = true;
+        root.style.left = `${startPosition.x + event.clientX - start.x}px`;
+        root.style.top = `${startPosition.y + event.clientY - start.y}px`;
+      });
+      root.addEventListener("pointerup", event => {
+        pointerDown = false;
+        suppressClick = true;
+        if (!moved) expanded(!root.classList.contains("expanded"));
+        hud.releasePointerCapture?.(event.pointerId);
+        setTimeout(() => { suppressClick = false; }, 0);
+      });
+
+      function dispatch(type, x, y) {
+        hud.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: 1, pointerType: "mouse" }));
+      }
+      function nativeClick() { hud.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
+      function check(name, condition) {
+        if (!condition) throw new Error(name + " failed");
+        return name + " passed";
+      }
+      function insideViewport() {
+        const rect = panel.getBoundingClientRect();
+        const epsilon = 1;
+        return rect.left >= margin - epsilon && rect.top >= margin - epsilon &&
+          rect.right <= window.innerWidth - margin + epsilon && rect.bottom <= window.innerHeight - margin + epsilon;
+      }
+      function cardVisible() {
+        const rect = panel.getBoundingClientRect();
+        return getComputedStyle(panel).display !== "none" && rect.width > 0 && rect.height > 0;
+      }
+      function setHud(x, y) {
+        root.style.left = `${x}px`;
+        root.style.top = `${y}px`;
+        expanded(false);
+        expanded(true);
+      }
+
+      async function run() {
+        const checks = [];
+        dispatch("pointerdown", 20, 20); dispatch("pointerup", 20, 20); nativeClick();
+        checks.push(check("HUD click opens card", root.classList.contains("expanded") && cardVisible()));
+        dispatch("pointerdown", 20, 20); dispatch("pointerup", 20, 20); nativeClick();
+        checks.push(check("second click closes card", !root.classList.contains("expanded") && !cardVisible()));
+        const before = { left: root.style.left, top: root.style.top };
+        dispatch("pointerdown", 20, 20); dispatch("pointermove", 45, 50); dispatch("pointerup", 45, 50); nativeClick();
+        checks.push(check("drag moves without toggling", !root.classList.contains("expanded") && (root.style.left !== before.left || root.style.top !== before.top)));
+
+        const positions = [
+          ["bottom-right", window.innerWidth - 54, window.innerHeight - 54],
+          ["bottom-left", 0, window.innerHeight - 54],
+          ["top-right", window.innerWidth - 54, 0],
+          ["top-left", 0, 0],
+          ["center", Math.round(window.innerWidth / 2 - 27), Math.round(window.innerHeight / 2 - 27)]
+        ];
+        for (const [name, x, y] of positions) {
+          setHud(x, y);
+          checks.push(check(`${name} card stays fully visible`, insideViewport()));
+        }
+        document.querySelector("#result").textContent = checks.join("\n");
+      }
+      run().catch(error => { document.querySelector("#result").textContent = error.message; });
+    })();
+  </script>
+</body>
+</html>

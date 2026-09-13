@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ChatGPT activity ledger fixture</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const retention = 7 * 86400000;
+  const normalize = event => ({ timestamp: event.timestamp, provider: "chatgpt", model: event.model || null, inputTokens: event.inputTokens ?? null, outputTokens: event.outputTokens ?? null, totalTokens: event.totalTokens ?? ((event.inputTokens || 0) + (event.outputTokens || 0)), source: event.source, confidence: event.confidence, eventId: event.eventId });
+  function append(events, event, now) { if (events.some(item => item.eventId === event.eventId)) return events; return [...events, normalize(event)].filter(item => now - item.timestamp <= retention); }
+  function summary(events, now) {
+    const valid = events.filter(item => item.provider === "chatgpt");
+    const day = new Date(now); day.setHours(0, 0, 0, 0);
+    const sum = list => list.reduce((total, item) => total + (item.totalTokens || 0), 0);
+    const recent = valid.filter(item => item.timestamp >= now - 5 * 3600000);
+    const hour = recent.filter(item => item.timestamp >= now - 3600000);
+    const first = hour[0]?.timestamp; const last = hour.at(-1)?.timestamp;
+    return { tokensToday: sum(valid.filter(item => item.timestamp >= day.getTime())), tokensFiveHours: sum(recent), messagesToday: valid.filter(item => item.timestamp >= day.getTime()).length, inputTokens: sum(valid.map(item => ({ totalTokens: item.inputTokens || 0 }))), outputTokens: sum(valid.map(item => ({ totalTokens: item.outputTokens || 0 }))), burnRate: first != null && last > first ? sum(hour) / ((last - first) / 60000) : null };
+  }
+  function check(name, condition) { if (!condition) throw new Error(name + " failed"); return name + " passed"; }
+  const now = Date.now(); let events = [];
+  events = append(events, { eventId: "user-1", timestamp: now - 300000, inputTokens: 100, outputTokens: 0, source: "tokenizer-estimate", confidence: "medium" }, now);
+  events = append(events, { eventId: "assistant-1", timestamp: now - 240000, inputTokens: 0, outputTokens: 300, source: "tokenizer-estimate", confidence: "medium" }, now);
+  const beforeDuplicate = events.length;
+  events = append(events, { eventId: "assistant-1", timestamp: now - 240000, inputTokens: 0, outputTokens: 300, source: "tokenizer-estimate", confidence: "medium" }, now);
+  const exact = { eventId: "assistant-exact", timestamp: now - 180000, inputTokens: 110, outputTokens: 310, totalTokens: 420, source: "provider-reported", confidence: "high" };
+  events = append(events, exact, now);
+  events = append(events, { eventId: "old", timestamp: now - 8 * 86400000, inputTokens: 999, outputTokens: 0, source: "rough-estimate", confidence: "low" }, now);
+  const result = summary(events, now);
+  document.querySelector("#result").textContent = [
+    check("one user message", events.some(item => item.eventId === "user-1")),
+    check("one assistant response", events.some(item => item.eventId === "assistant-1")),
+    check("duplicate response prevention", events.length === beforeDuplicate + 1),
+    check("exact metadata retained", events.find(item => item.eventId === "assistant-exact")?.source === "provider-reported"),
+    check("seven-day pruning", !events.some(item => item.eventId === "old")),
+    check("rolling five-hour total", result.tokensFiveHours === 820),
+    check("messages today", result.messagesToday === 3),
+    check("input/output breakdown", result.inputTokens === 210 && result.outputTokens === 610),
+    check("burn rate", result.burnRate === 410)
+  ].join("\\n");
+})();
+</script></body></html>

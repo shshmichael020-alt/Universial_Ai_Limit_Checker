@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Provider source fixture</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const priority = { "provider-api": 4, "provider-visible": 3, estimated: 2, cached: 1, unavailable: 0 };
+  const number = value => Number.isFinite(Number(value)) ? Number(value) : null;
+  const reset = value => typeof value === "string" && Number.isFinite(Date.parse(value)) ? Date.parse(value) : null;
+  function chatgpt(payload) {
+    const window = payload.rate_limit.primary_window;
+    return { id: "chatgpt-primary", percentage: number(window.used_percent), limit: null, used: null, resetAt: reset(window.reset_at), source: "provider-api" };
+  }
+  function geminiConsumer() { return { status: "unavailable", source: "unavailable", limits: [] }; }
+  function claude(payload) {
+    const item = payload.usage.session;
+    return { percentage: number(item.used_percent), resetAt: reset(item.reset_at), source: "provider-api" };
+  }
+  function check(name, value) { if (!value) throw new Error(name + " failed"); return name + " passed"; }
+  const chat = chatgpt({ rate_limit: { primary_window: { used_percent: 72, reset_at: "2026-09-13T10:00:00Z" } } });
+  const gem = geminiConsumer();
+  const claudeResult = claude({ usage: { session: { used_percent: 36, reset_at: "2026-09-13T14:00:00Z" } } });
+  const api = { id: "primary", percentage: 72, source: "provider-api" };
+  const dom = { id: "primary", percentage: 80, source: "provider-visible" };
+  const merged = priority[api.source] >= priority[dom.source] ? api : dom;
+  document.querySelector("#result").textContent = [
+    check("ChatGPT partial window", chat.percentage === 72 && chat.limit === null && chat.source === "provider-api"),
+    check("ChatGPT reset", Number.isFinite(chat.resetAt)),
+    check("Gemini consumer quota unavailable", gem.status === "unavailable" && gem.limits.length === 0),
+    check("Cloud Code quota is not consumer quota", gem.source !== "provider-api"),
+    check("Claude API usage", claudeResult.percentage === 36 && Number.isFinite(claudeResult.resetAt)),
+    check("API outranks DOM", merged === api)
+  ].join("\\n");
+})();
+</script></body></html>

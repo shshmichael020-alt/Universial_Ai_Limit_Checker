@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>O200K tokenizer fixture</title></head>
+<body><pre id="result"></pre><script src="../src/vendor/o200k_base.js"></script><script>
+(() => {
+  const tokenizer = window.GPTTokenizer_o200k_base;
+  const samples = ["", "Hello world", " punctuation!?", "12345", "const value = 42;", "こんにちは世界", "Привет мир", "مرحبا بالعالم", "long text ".repeat(200)];
+  function check(name, condition) { if (!condition) throw new Error(name + " failed"); return name + " passed"; }
+  const first = samples.map(text => tokenizer.encode(text).length);
+  const second = samples.map(text => tokenizer.encode(text).length);
+  document.querySelector("#result").textContent = [
+    check("bundle loaded", Boolean(tokenizer?.encode)),
+    check("empty string", first[0] === 0),
+    check("deterministic encoding", JSON.stringify(first) === JSON.stringify(second)),
+    check("English", first[1] > 0),
+    check("punctuation", first[2] > 0),
+    check("numbers", first[3] > 0),
+    check("code", first[4] > 0),
+    check("Unicode", first[5] > 0 && first[6] > 0 && first[7] > 0),
+    check("long text", first[8] > first[1])
+  ].join("\\n");
+})();
+</script></body></html>

@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Limit</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header><div class="brand-lockup"><span class="brand-mark" aria-hidden="true">⚡</span><div><p class="kicker">AI LIMIT</p><h1>Usage at a glance</h1><p class="tagline">Track smart. Use freely.</p></div></div><button id="refresh" class="icon-button" type="button" aria-label="Refresh usage" title="Refresh usage">↻</button></header>
+    <p id="updated" class="muted">Checking local data...</p>
+    <div id="providers" aria-live="polite"></div>
+    <button id="dashboard" class="primary" type="button">Open full dashboard <span aria-hidden="true">↗</span></button>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

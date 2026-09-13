@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ChatGPT HUD quota/activity states</title><style>#card{width:224px;padding:12px;font:12px sans-serif}.hero{font-size:32px}.row{display:block}.row[hidden]{display:none}</style></head>
+<body><section id="card"><h1>ChatGPT usage</h1><p id="status"></p><section id="activity-section"><div class="hero" id="activity-hero"></div><div id="activity"></div><div id="last"></div><div id="context"></div><div id="burn"></div></section><section id="official-section"><div class="hero" id="official-value"></div><div id="official-label"></div><div id="used" class="row"></div><div id="remaining" class="row"></div><div id="reset" class="row"></div><div id="credits" class="row"></div></section></section><pre id="result"></pre><script>
+(() => {
+  const card = document.querySelector("#card");
+  function render(state) {
+    const entry = state.usage?.chatgpt;
+    const limits = entry?.limits || [];
+    const percentageLimits = limits.filter(item => item?.percentage != null && Number.isFinite(Number(item.percentage)));
+    const officialAvailable = percentageLimits.length > 0;
+    const cached = officialAvailable && entry.status === "cached";
+    const limit = percentageLimits[0] || null;
+    const credits = limits.find(item => item.id === "credits");
+    const activity = state.activitySummary;
+    document.querySelector("#status").textContent = officialAvailable ? (cached ? "Cached" : "Detected") : "Official quota unavailable";
+    const hasActivity = Number(activity?.tokensFiveHours) > 0;
+    document.querySelector("#activity-hero").textContent = !officialAvailable && hasActivity ? "12.8K" : "";
+    document.querySelector("#official-value").textContent = officialAvailable ? `${limit.percentage}%` : "?";
+    document.querySelector("#official-label").textContent = officialAvailable ? (cached ? "Official quota · Cached" : "Official quota") : "Official quota unavailable";
+    ["used", "remaining", "reset"].forEach(id => { document.querySelector(`#${id}`).hidden = !officialAvailable; });
+    document.querySelector("#used").textContent = officialAvailable ? `Used ${limit.used ?? "—"}` : "";
+    document.querySelector("#remaining").textContent = officialAvailable ? `Remaining ${limit.remaining ?? "—"}` : "";
+    document.querySelector("#reset").textContent = officialAvailable ? `Reset ${limit.resetAt ?? "Unavailable"}` : "";
+    document.querySelector("#credits").textContent = credits ? `Credits ${credits.displayValue}` : "";
+    document.querySelector("#activity").textContent = `Activity (5h) ${activity?.tokensFiveHours ?? "—"} tokens · ${activity?.messagesFiveHours ?? 0} messages`;
+    document.querySelector("#last").textContent = `Last generation ${activity?.lastGenerationTokens ?? "—"}`;
+    document.querySelector("#context").textContent = `Context ${activity?.activityModel?.contextTokens ?? "—"}`;
+    document.querySelector("#burn").textContent = `Burn rate ${activity?.burnRate ?? "—"}`;
+    if (officialAvailable) card.insertBefore(document.querySelector("#official-section"), document.querySelector("#activity-section"));
+    else card.insertBefore(document.querySelector("#activity-section"), document.querySelector("#official-section"));
+  }
+  function check(name, condition) { if (!condition) throw new Error(name + " failed"); return name + " passed"; }
+  const activity = { tokensFiveHours: 12849, messagesFiveHours: 33, lastGenerationTokens: 231, burnRate: null, activityModel: { contextTokens: null } };
+  render({ usage: { chatgpt: { status: "detected", limits: [{ id: "credits", percentage: null, displayValue: "0 credits left" }] } }, activitySummary: activity });
+  const unknown = card.textContent;
+  const checks = [
+    check("unavailable quota shows ?", document.querySelector("#official-value").textContent === "?"),
+    check("unavailable label visible", unknown.includes("Official quota unavailable")),
+    check("activity stays visible", unknown.includes("Activity (5h)")),
+    check("credits stay separate", unknown.includes("Credits 0 credits left")),
+    check("no fake percentage", !unknown.includes("0%")),
+    check("no fake used row", document.querySelector("#used").hidden),
+    check("activity is not percentage", !unknown.includes("12,849%"))
+    ,check("activity is primary before official quota", card.children[2].id === "activity-section" && card.children[3].id === "official-section")
+    ,check("activity hero is promoted", document.querySelector("#activity-hero").textContent === "12.8K")
+  ];
+  render({ usage: { chatgpt: { status: "cached", limits: [{ id: "primary", percentage: 72, used: 72, remaining: 28, resetAt: "later" }] } }, activitySummary: activity });
+  const cached = card.textContent;
+  checks.push(check("cached quota labeled", cached.includes("Official quota · Cached") && cached.includes("Cached")));
+  render({ usage: { chatgpt: { status: "detected", limits: [{ id: "primary", percentage: 72, used: 72, remaining: 28, resetAt: "later" }] } }, activitySummary: activity });
+  const available = card.textContent;
+  checks.push(check("available quota remains primary", document.querySelector("#official-value").textContent === "72%" && card.children[2].id === "official-section" && available.includes("Activity (5h)")));
+  render({ usage: { chatgpt: { status: "unavailable", limits: [] } }, activitySummary: null });
+  const empty = card.textContent;
+  checks.push(check("no data remains unknown", empty.includes("?") && empty.includes("Official quota unavailable") && empty.includes("Activity (5h) — tokens")));
+  document.querySelector("#result").textContent = checks.join("\\n");
+})();
+</script></body></html>

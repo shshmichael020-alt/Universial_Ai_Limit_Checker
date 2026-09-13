@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Power ring UI contract</title><style>
+#hud{position:relative;width:58px;height:58px;border-radius:50%;background:#09121c;color:white}.circle{position:relative;width:50px;height:50px;display:grid;place-items:center}.bolt{font-size:30px}.panel{position:relative;width:318px;min-height:180px;padding:14px;background:#0d1b28;color:white}.source-info{position:absolute;right:14px;bottom:13px}.source-popover[hidden]{display:none}
+</style></head><body><button id="hud" aria-label="ChatGPT usage, local activity"><span class="circle"><span class="bolt" aria-hidden="true">⚡</span></span></button><section class="panel"><button class="source-info" aria-label="Show usage source information">ⓘ</button><div class="source-popover" hidden><strong>Measured locally</strong><span>Provider quota unavailable</span><span>O200K local activity</span></div></section><pre id="result"></pre><script>
+(() => {
+  const hud = document.querySelector('#hud');
+  const info = document.querySelector('.source-info');
+  const popover = document.querySelector('.source-popover');
+  const state = { officialQuotaAvailable: false, activityTokens: 12849 };
+  hud.dataset.mode = state.officialQuotaAvailable ? 'official' : state.activityTokens > 0 ? 'activity' : 'neutral';
+  hud.style.setProperty('--ring-progress', state.officialQuotaAvailable ? '72%' : state.activityTokens > 0 ? '34%' : '0%');
+  info.onclick = () => { popover.hidden = false; info.setAttribute('aria-expanded', 'true'); };
+  function check(name, value) { if (!value) throw new Error(name + ' failed'); return name + ' passed'; }
+  info.click();
+  const text = [...document.body.querySelectorAll('button, section, strong, span')].map(element => element.textContent).join(' ');
+  document.querySelector('#result').textContent = [
+    check('center contains permanent lightning', document.querySelector('.bolt').textContent === '⚡'),
+    check('center has no question mark', !document.querySelector('.circle').textContent.includes('?')),
+    check('unavailable uses activity mode', hud.dataset.mode === 'activity'),
+    check('activity ring has no quota percentage label', !text.includes('12.8%') && !text.includes('12849%')), 
+    check('bottom-right info control exists', getComputedStyle(info).position === 'absolute' && getComputedStyle(info).right === '14px'),
+    check('source explanation is revealed', !popover.hidden && text.includes('Measured locally') && text.includes('Provider quota unavailable')),
+    check('no fake unavailable percentage', !text.includes('0%') && !text.includes('100%'))
+  ].join('\\n');
+})();
+</script></body></html>

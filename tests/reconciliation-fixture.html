@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Reconciliation semantics</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  function comparable(quota, activity) {
+    return quota?.type === "tokens" && quota.unit === "tokens" && activity?.unit === "tokens" && quota.period != null && quota.period === activity.window && Number.isFinite(Number(quota.used)) && Number.isFinite(Number(activity.totalTokens));
+  }
+  function check(name, value) { if (!value) throw new Error(name + " failed"); return name + " passed"; }
+  const local = { unit: "tokens", window: "rolling-5h", totalTokens: 100 };
+  document.querySelector("#result").textContent = [
+    check("message quota is not comparable", !comparable({ type: "messages", used: 10, period: "rolling-5h" }, local)),
+    check("credits are not comparable", !comparable({ type: "credits", used: 10, period: "rolling-5h" }, local)),
+    check("different windows are not comparable", !comparable({ type: "tokens", unit: "tokens", used: 100, period: "rolling-7d" }, local)),
+    check("missing official quota is not comparable", !comparable(null, local)),
+    check("matching token unit and window is comparable", comparable({ type: "tokens", unit: "tokens", used: 100, period: "rolling-5h" }, local))
+  ].join("\n");
+})();
+</script></body></html>

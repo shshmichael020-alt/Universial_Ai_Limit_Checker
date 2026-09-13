@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Source resolver recovery</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const priority = { "provider-api": 4, "provider-visible": 3, estimated: 2, cached: 1 };
+  function merge(current, incoming) {
+    const byId = new Map((current.limits || []).map(limit => [limit.id, limit]));
+    incoming.limits.forEach(limit => {
+      const old = byId.get(limit.id);
+      if (!old || (priority[limit.source] || 0) >= (priority[old.source] || 0)) byId.set(limit.id, limit);
+    });
+    const source = [...byId.values()].sort((a, b) => (priority[b.source] || 0) - (priority[a.source] || 0))[0].source;
+    return { source, status: source === "provider-api" ? "live" : source === "provider-visible" ? "detected" : source === "estimated" ? "estimated" : "cached" };
+  }
+  const cached = { limits: [{ id: "primary", percentage: 40, source: "cached" }] };
+  const visible = merge(cached, { limits: [{ id: "primary", percentage: 55, source: "provider-visible" }] });
+  const api = merge(cached, { limits: [{ id: "primary", percentage: 65, source: "provider-api" }] });
+  function check(name, value) { if (!value) throw new Error(name + " failed"); return name + " passed"; }
+  document.querySelector("#result").textContent = [
+    check("cached to provider-visible recovers", visible.status === "detected" && visible.source === "provider-visible"),
+    check("cached to provider-api is live", api.status === "live" && api.source === "provider-api"),
+    check("API remains higher priority", api.source === "provider-api")
+  ].join("\n");
+})();
+</script></body></html>

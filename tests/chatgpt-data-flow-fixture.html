@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ChatGPT Credits data-flow fixture</title>
+</head>
+<body>
+  <div class="text-token-text-primary text-sm">0 credits left</div>
+  <button id="expand" type="button">Open usage card</button>
+  <section id="card" hidden>
+    <h1>ChatGPT usage</h1>
+    <p id="status"></p>
+    <p id="credits"></p>
+    <p id="source"></p>
+    <p id="updated"></p>
+  </section>
+  <pre id="result"></pre>
+  <script>
+    (() => {
+      const storage = {};
+      const element = document.querySelector("div.text-token-text-primary.text-sm");
+      const text = element.textContent.trim();
+      const value = Number(text.match(/^(\d+) credits left$/i)[1]);
+      const detected = {
+        provider: "chatgpt",
+        status: "detected",
+        limits: [{
+          id: "credits", name: "Credits", used: null, limit: null, remaining: value,
+          displayValue: text, percentage: null, period: null, resetAt: null, model: null,
+          source: "provider-visible", confidence: "high"
+        }]
+      };
+      const normalized = {
+        ...detected,
+        updatedAt: Date.now(),
+        limits: detected.limits.map(limit => ({ ...limit }))
+      };
+      storage.usage = { chatgpt: normalized };
+
+      function render() {
+        const entry = storage.usage.chatgpt;
+        document.querySelector("#status").textContent = "Status: " + entry.status;
+        document.querySelector("#credits").textContent = `${entry.limits[0].name}\n${entry.limits[0].displayValue}`;
+        document.querySelector("#source").textContent = "Source: " + entry.limits[0].source;
+        document.querySelector("#updated").textContent = "Last updated: " + entry.updatedAt;
+      }
+      document.querySelector("#expand").addEventListener("click", () => {
+        document.querySelector("#card").hidden = false;
+        render();
+      });
+
+      function check(name, condition) {
+        if (!condition) throw new Error(name + " failed");
+        return name + " passed";
+      }
+      document.querySelector("#expand").click();
+      const cardText = document.querySelector("#card").textContent;
+      const checks = [
+        check("detector produces Credits object", detected.limits[0].id === "credits" && detected.limits[0].displayValue === "0 credits left"),
+        check("usage state contains Credits", storage.usage.chatgpt.limits[0].name === "Credits"),
+        check("expanded card renders 0 credits left", cardText.includes("0 credits left")),
+        check("percentage remains null", storage.usage.chatgpt.limits[0].percentage === null),
+        check("card does not render Usage unavailable", !cardText.includes("Usage unavailable"))
+      ];
+      document.querySelector("#result").textContent = checks.join("\n");
+    })();
+  </script>
+</body>
+</html>

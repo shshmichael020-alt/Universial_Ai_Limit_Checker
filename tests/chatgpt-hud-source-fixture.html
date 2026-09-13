@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ChatGPT HUD source fixture</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const priority = { "provider-api": 3, "provider-visible": 2, estimated: 1 };
+  function view(entry) {
+    const percentageLimits = (entry?.limits || []).filter(limit => limit.percentage != null && Number.isFinite(Number(limit.percentage)));
+    const limit = percentageLimits.sort((left, right) => (priority[right.source] || 0) - (priority[left.source] || 0))[0] || null;
+    const known = Number.isFinite(Number(limit?.percentage));
+    const credits = entry?.limits?.find(item => item.id === "credits");
+    const used = known ? String(limit.used ?? "—") : "—";
+    const remaining = known ? String(limit.remaining ?? "—") : "—";
+    return { percentage: known ? Number(limit.percentage) : null, used, remaining, credits: credits?.displayValue || null, unavailable: !entry?.limits?.length };
+  }
+  function check(name, value) { if (!value) throw new Error(name + " failed"); return name + " passed"; }
+  const api = view({ status: "live", limits: [{ id: "primary", percentage: 72, used: null, remaining: null, source: "provider-api" }] });
+  const credits = view({ status: "detected", limits: [{ id: "credits", percentage: null, used: null, remaining: 0, displayValue: "0 credits left", source: "provider-visible" }] });
+  const estimate = view({ status: "estimated", limits: [{ id: "estimated-visible-context", percentage: null, used: 4784, remaining: null, source: "estimated" }] });
+  const empty = view({ status: "unavailable", limits: [] });
+  document.querySelector("#result").textContent = [
+    check("API percentage is primary", api.percentage === 72 && api.used === "—"),
+    check("Credits-only remains unknown", credits.percentage === null && credits.used === "—" && credits.remaining === "—" && credits.credits === "0 credits left"),
+    check("Estimator is not quota", estimate.percentage === null && estimate.used === "—" && estimate.remaining === "—"),
+    check("No data is unavailable", empty.unavailable)
+  ].join("\\n");
+})();
+</script></body></html>

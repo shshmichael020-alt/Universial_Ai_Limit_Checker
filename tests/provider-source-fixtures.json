@@ -1,0 +1,57 @@
+{
+  "chatgpt": {
+    "primaryWindow": {
+      "rate_limit": {
+        "primary_window": {
+          "used_percent": 72,
+          "limit_window_seconds": 18000,
+          "reset_at": "2026-09-13T10:00:00Z"
+        }
+      }
+    },
+    "weeklyWindow": {
+      "rate_limit": {
+        "secondary_window": {
+          "used_percent": 41,
+          "limit_window_seconds": 604800,
+          "reset_at": "2026-09-20T00:00:00Z"
+        }
+      }
+    },
+    "additionalModelLimit": {
+      "additional_rate_limits": [
+        {
+          "id": "reasoning",
+          "used_percent": 12,
+          "limit_window_seconds": 3600,
+          "model": "reasoning-model"
+        }
+      ]
+    },
+    "credits": {
+      "credits": { "remaining": 0 }
+    },
+    "partialResponse": {
+      "rate_limit": { "primary_window": { "used_percent": 72 } }
+    },
+    "failure": { "status": 401 },
+    "expiredAuthentication": { "status": 403 }
+  },
+  "gemini": {
+    "quotaBuckets": {
+      "buckets": [
+        { "modelId": "gemini-2.5-pro", "remainingFraction": 0.25, "resetTime": "2026-09-13T12:00:00Z" },
+        { "modelId": "gemini-2.5-flash", "remainingFraction": 0.8, "resetTime": "2026-09-13T11:00:00Z" }
+      ]
+    },
+    "missingProject": {},
+    "failure": { "status": 401 },
+    "unauthenticated": { "status": 403 }
+  },
+  "claude": {
+    "apiSuccess": { "usage": { "session": { "used_percent": 36, "reset_at": "2026-09-13T14:00:00Z" } } },
+    "domFallback": { "status": "unavailable" },
+    "unavailable": {}
+  },
+  "priority": ["provider-api", "provider-visible", "estimated", "cached", "unavailable"]
+}

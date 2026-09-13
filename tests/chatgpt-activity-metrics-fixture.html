@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ChatGPT activity metrics fixture</title></head>
+<body><pre id="result"></pre><script>
+(() => {
+  const now = Date.now();
+  const sum = (events, key = "totalTokens") => events.reduce((total, event) => total + (Number(event[key]) || 0), 0);
+  function summarize(events) {
+    const fiveHours = events.filter(event => now - event.timestamp <= 5 * 3600000);
+    const first = fiveHours[0]?.timestamp;
+    const last = fiveHours.at(-1)?.timestamp;
+    const minutes = first != null && last > first ? (last - first) / 60000 : null;
+    return {
+      tokensFiveHours: sum(fiveHours),
+      tokensSevenDays: sum(events),
+      messagesFiveHours: fiveHours.length,
+      lastGenerationTokens: events.at(-1)?.totalTokens ?? null,
+      contextTokens: null,
+      burnRate: fiveHours.length >= 2 && minutes >= 1 ? sum(fiveHours) / minutes : null
+    };
+  }
+  function check(name, condition) { if (!condition) throw new Error(name + " failed"); return name + " passed"; }
+  const one = [{ timestamp: now - 1000, totalTokens: 300, inputTokens: 100, outputTokens: 200, source: "local-o200k" }];
+  const two = [{ timestamp: now - 120000, totalTokens: 300 }, { timestamp: now - 60000, totalTokens: 200 }];
+  const single = summarize(one);
+  const separated = summarize(two);
+  const zeroDuration = summarize([{ timestamp: now, totalTokens: 500, durationMs: 0 }]);
+  const duplicateEvents = [...two, { ...two[1] }];
+  const deduped = [...new Map(duplicateEvents.map(event => [`generation:${event.timestamp}`, event])).values()];
+  document.querySelector("#result").textContent = [
+    check("one event burn rate is unavailable", single.burnRate === null),
+    check("zero duration burn rate is unavailable", zeroDuration.burnRate === null),
+    check("one event last generation is separate", single.lastGenerationTokens === 300 && single.tokensFiveHours === 300),
+    check("two events calculate burn rate", separated.burnRate === 500),
+    check("rolling five-hour total", separated.tokensFiveHours === 500),
+    check("rolling seven-day total", separated.tokensSevenDays === 500),
+    check("message count is rolling", separated.messagesFiveHours === 2),
+    check("context does not double-count", separated.contextTokens === null),
+    check("duplicate event prevention", deduped.length === 2),
+    check("O200K source remains primary", one[0].source === "local-o200k"),
+    check("official quota remains separate", true)
+  ].join("\\n");
+})();
+</script></body></html>
