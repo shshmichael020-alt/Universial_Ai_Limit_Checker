@@ -35,6 +35,7 @@ export class ProviderAdapter {
       source: candidate.source === "estimated" ? "estimated" : "provider-visible",
       confidence: limit.confidence || "high",
       estimated: limit.estimated === true || candidate.source === "estimated",
+      tokenEstimated: limit.tokenEstimated === true,
       sourceDetail: limit.sourceDetail || "visible DOM",
       ...(limit.displayValue == null ? {} : { displayValue: String(limit.displayValue) })
     }));

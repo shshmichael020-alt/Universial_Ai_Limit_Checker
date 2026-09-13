@@ -1,5 +1,8 @@
 import { ProviderAdapter } from "./provider-interface.js";
 
+const CLAUDE_SESSION_TOKEN_LIMIT = 90000;
+const CLAUDE_WEEKLY_TOKEN_LIMIT = 1260000;
+
 function numberOrNull(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -23,8 +26,46 @@ function findOrganization(value) {
   return null;
 }
 
+function utilizationPercent(value) {
+  const number = numberOrNull(value);
+  if (number == null) return null;
+  return Math.max(0, Math.min(100, number <= 1 ? number * 100 : number));
+}
+
+function parseWindow(id, item, name, period, tokenLimit) {
+  if (!item || typeof item !== "object") return null;
+  const percentage = utilizationPercent(item.utilization ?? item.used_percent ?? item.usedPercentage ?? item.percentage);
+  if (percentage == null) return null;
+  const used = Math.round((percentage / 100) * tokenLimit);
+  return {
+    id,
+    name,
+    used,
+    limit: tokenLimit,
+    remaining: Math.max(0, tokenLimit - used),
+    percentage,
+    period,
+    resetAt: resetTimestamp(item.resets_at ?? item.reset_at ?? item.resetAt ?? item.reset_time),
+    model: null,
+    source: "provider-api",
+    confidence: "high",
+    estimated: false,
+    tokenEstimated: true,
+    sourceDetail: "Claude first-party utilization; token count estimated using AIRadar's 90K/1.26M reference windows"
+  };
+}
+
 function parseUsage(payload) {
   if (!payload || typeof payload !== "object") return [];
+  const windows = payload.message_limit?.windows || payload.windows || {};
+  const fiveHour = payload.five_hour || windows["5h"];
+  const sevenDay = payload.seven_day || windows["7d"];
+  const windowLimits = [
+    parseWindow("claude-session-5h", fiveHour, "Claude 5-hour window · 90K tokens", "rolling-5h", CLAUDE_SESSION_TOKEN_LIMIT),
+    parseWindow("claude-weekly-7d", sevenDay, "Claude weekly window · 1.26M tokens", "rolling-7d", CLAUDE_WEEKLY_TOKEN_LIMIT)
+  ].filter(Boolean);
+  if (windowLimits.length) return windowLimits;
+
   const limits = [];
   const entries = payload.limits || payload.usage || payload.rate_limits || payload;
   for (const [key, item] of Object.entries(entries || {})) {

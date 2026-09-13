@@ -28,7 +28,9 @@ export function mergeUsageSources(current, incoming) {
   const limitsById = new Map(current.limits.map(limit => [limit.id, limit]));
   for (const limit of incoming.limits) {
     const existing = limitsById.get(limit.id);
-    if (!existing || sourcePriority(limit.source) >= sourcePriority(existing.source)) {
+    const exhaustedProviderSignal = limit.source === "provider-visible" &&
+      limit.confidence === "high" && Number(limit.percentage) === 100 && Number(limit.remaining) === 0;
+    if (!existing || exhaustedProviderSignal || sourcePriority(limit.source) >= sourcePriority(existing.source)) {
       limitsById.set(limit.id, limit);
     }
   }
